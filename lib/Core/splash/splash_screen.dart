@@ -196,7 +196,7 @@ class _SplashScreenState extends State<SplashScreen>
                               ],
                             ),
                             child: Image.asset(
-                              'assets/images/app_icon.jpeg',
+                              'assets/icon/ic_launcher.webp',
                               width: 30.w,
                               height: 30.w,
                             ),

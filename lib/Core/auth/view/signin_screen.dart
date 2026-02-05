@@ -96,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen>
                             boxShadow: [AppColors.goldGlowShadow()],
                           ),
                           child: Image.asset(
-                            'assets/images/app_icon.jpeg',
+                            'assets/icon/ic_launcher.webp',
                             height: 25.w,
                             width: 25.w,
                           ),
@@ -301,24 +301,30 @@ class _LoginScreenState extends State<LoginScreen>
                                     final email = isStudent
                                         ? studentEmailController.text.trim()
                                         : individualEmailController.text.trim();
-                                    final password = passwordController.text.trim();
+                                    final password = passwordController.text
+                                        .trim();
 
                                     if (email.isEmpty) {
-                                      _showErrorDialog('Please enter your email');
+                                      _showErrorDialog(
+                                        'Please enter your email',
+                                      );
                                       return;
                                     }
 
                                     if (password.isEmpty) {
-                                      _showErrorDialog('Please enter your password');
+                                      _showErrorDialog(
+                                        'Please enter your password',
+                                      );
                                       return;
                                     }
 
                                     // Clear any cached books data before login
                                     try {
-                                      final homeService = Provider.of<HomeApiServices>(
-                                        context,
-                                        listen: false,
-                                      );
+                                      final homeService =
+                                          Provider.of<HomeApiServices>(
+                                            context,
+                                            listen: false,
+                                          );
                                       homeService.resetState();
                                     } catch (e) {
                                       // Provider might not be available yet, ignore
@@ -339,10 +345,11 @@ class _LoginScreenState extends State<LoginScreen>
                                     );
 
                                     // Call login API (without auto-navigation)
-                                    final result = await authApiServices.loginWithoutNavigation(
-                                      email: email,
-                                      password: password,
-                                    );
+                                    final result = await authApiServices
+                                        .loginWithoutNavigation(
+                                          email: email,
+                                          password: password,
+                                        );
 
                                     // Dismiss loading indicator safely
                                     if (mounted && Navigator.canPop(context)) {
@@ -363,7 +370,8 @@ class _LoginScreenState extends State<LoginScreen>
                                       }
                                     } else {
                                       // Show error
-                                      final errorMessage = result['message'] ?? 
+                                      final errorMessage =
+                                          result['message'] ??
                                           'Login failed. Please try again.';
                                       if (mounted) {
                                         _showErrorDialog(errorMessage);
