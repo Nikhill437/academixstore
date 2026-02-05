@@ -27,6 +27,7 @@ class BooksDetailsScreen extends StatefulWidget {
   final String? bookId;
   final String? bookAuthor;
   final int? isPurchased; // ✅ Changed to String to match '0' or '1'
+  final String? questionPaperUrl;
 
   const BooksDetailsScreen({
     super.key,
@@ -40,6 +41,7 @@ class BooksDetailsScreen extends StatefulWidget {
     this.bookId,
     this.bookAuthor,
     this.isPurchased,
+    this.questionPaperUrl,
   });
 
   @override
@@ -60,6 +62,8 @@ class _BooksDetailsScreenState extends State<BooksDetailsScreen> {
   void initState() {
     super.initState();
     _currentPurchaseStatus = widget.isPurchased ?? 0;
+    log('BooksDetailsScreen initialized for book: ${widget.bookId}');
+    log('PDF URL received: ${widget.bookPdfurl?.substring(0, widget.bookPdfurl!.length > 100 ? 100 : widget.bookPdfurl!.length) ?? "null"}...');
     _enableScreenSecurity();
     _loadFirstPage(widget.bookPdfurl ?? '');
     _initializeRazorpay();
@@ -119,17 +123,25 @@ class _BooksDetailsScreenState extends State<BooksDetailsScreen> {
 
   Future<void> _loadFirstPage(String pdfUrl) async {
     if (pdfUrl.isEmpty) {
+      log('PDF URL is empty, skipping preview load');
       setState(() => _loading = false);
       return;
     }
 
     final url = pdfUrl.replaceAll(RegExp(r'\s+'), '');
+    log('Loading PDF preview from: ${url.substring(0, url.length > 100 ? 100 : url.length)}...');
 
     try {
       final response = await http.get(Uri.parse(url));
+      log('PDF fetch response status: ${response.statusCode}');
+      
       if (response.statusCode == 200) {
+        log('PDF fetched successfully, size: ${response.bodyBytes.length} bytes');
         final document = await PdfDocument.openData(response.bodyBytes);
+        log('PDF document opened, page count: ${document.pagesCount}');
+        
         final page = await document.getPage(1);
+        log('Got first page, rendering...');
 
         final pageImage = await page.render(
           width: 800,
@@ -137,18 +149,26 @@ class _BooksDetailsScreenState extends State<BooksDetailsScreen> {
           format: PdfPageImageFormat.png,
         );
         await page.close();
+        log('Page rendered successfully');
 
-        setState(() {
-          _firstPageImage = pageImage;
-          _loading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _firstPageImage = pageImage;
+            _loading = false;
+          });
+        }
       } else {
-        print("Failed to load PDF: ${response.statusCode}");
+        log("Failed to load PDF: ${response.statusCode}");
+        if (mounted) {
+          setState(() => _loading = false);
+        }
+      }
+    } catch (e, stackTrace) {
+      log("Error loading PDF preview: $e");
+      log("Stack trace: $stackTrace");
+      if (mounted) {
         setState(() => _loading = false);
       }
-    } catch (e) {
-      print("Error loading PDF preview: $e");
-      setState(() => _loading = false);
     }
   }
 
@@ -182,6 +202,42 @@ class _BooksDetailsScreenState extends State<BooksDetailsScreen> {
     } catch (e) {
       log('Error opening PDF viewer: $e');
       _showErrorDialog('Error loading PDF: $e');
+    }
+  }
+
+  // ✅ NEW: Open question paper PDF viewer
+  Future<void> _openQuestionPaperViewer() async {
+    final questionPaperUrl = widget.questionPaperUrl ?? '';
+
+    if (questionPaperUrl.isEmpty) {
+      _showErrorDialog('Question paper not available');
+      return;
+    }
+
+    try {
+      log('Opening question paper viewer for book: ${widget.bookId}');
+
+      // Navigate to secure PDF screen with page transition
+      if (mounted) {
+        Navigator.push(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                SecurePDFScreen(
+                  pdfUrl: questionPaperUrl,
+                  watermarkText: userId,
+                ),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+            transitionDuration: const Duration(milliseconds: 300),
+          ),
+        );
+      }
+    } catch (e) {
+      log('Error opening question paper: $e');
+      _showErrorDialog('Error loading question paper: $e');
     }
   }
 
@@ -783,17 +839,25 @@ class _BooksDetailsScreenState extends State<BooksDetailsScreen> {
                                             ],
                                           )
                                         : _firstPageImage != null
-                                        ? ClipRRect(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            child: Image.memory(
+                                        ? Container(
+                                            decoration: BoxDecoration(
                                               color: Colors.white,
-                                              _firstPageImage!.bytes,
-                                              width: double.infinity,
-                                              fit: BoxFit.contain,
-                                              cacheWidth: null,
-                                              cacheHeight: null,
+                                              borderRadius: BorderRadius.circular(12),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withValues(alpha: 0.1),
+                                                  blurRadius: 8,
+                                                  offset: Offset(0, 2),
+                                                ),
+                                              ],
+                                            ),
+                                            child: ClipRRect(
+                                              borderRadius: BorderRadius.circular(12),
+                                              child: Image.memory(
+                                                _firstPageImage!.bytes,
+                                                width: double.infinity,
+                                                fit: BoxFit.contain,
+                                              ),
                                             ),
                                           )
                                         : Column(
@@ -878,6 +942,83 @@ class _BooksDetailsScreenState extends State<BooksDetailsScreen> {
                               ],
                             ),
                           ),
+
+                          // ✅ NEW: Question Paper Section
+                          if (widget.questionPaperUrl != null &&
+                              widget.questionPaperUrl!.isNotEmpty) ...[
+                            SizedBox(height: 3.h),
+                            Text(
+                              'Question Paper',
+                              style: GoogleFonts.poppins(
+                                color: AppColors.primaryGold,
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(height: 1.h),
+                            InkWell(
+                              onTap: _openQuestionPaperViewer,
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                padding: EdgeInsets.all(4.w),
+                                decoration: AppColors.glassmorphicDecoration(
+                                  borderRadius: 16,
+                                  isDark: isDark,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(3.w),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primaryGold
+                                            .withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Icon(
+                                        Icons.description_rounded,
+                                        color: AppColors.primaryGold,
+                                        size: 24.sp,
+                                      ),
+                                    ),
+                                    SizedBox(width: 4.w),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'View Question Paper',
+                                            style: GoogleFonts.poppins(
+                                              color: AppColors.getTextPrimary(
+                                                isDark,
+                                              ),
+                                              fontSize: 14.sp,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          SizedBox(height: 0.5.h),
+                                          Text(
+                                            'Tap to preview the question paper',
+                                            style: GoogleFonts.poppins(
+                                              color: AppColors.getTextSecondary(
+                                                isDark,
+                                              ),
+                                              fontSize: 11.sp,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.arrow_forward_ios_rounded,
+                                      color: AppColors.primaryGold,
+                                      size: 16.sp,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
 
                           // ✅ Add extra space for floating buttons
                           SizedBox(height: 10.h),

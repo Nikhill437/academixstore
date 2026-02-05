@@ -44,6 +44,7 @@ dependencies:
   screen_protector: ^1.4.2+1
   vector_math: ^2.1.4
   respix: ^0.0.2
+  sizer: 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
@@ -62,10 +63,12 @@ dev_dependencies:
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
-flutter_icons:
+flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icon/ic_launcher.webp" # your icon path here
+  image_path: "app_icon.jpeg"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "app_icon.jpeg"
 # The following section is specific to Flutter packages.
 flutter:
 

@@ -64,6 +64,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    // Check if user is a student
+    final isStudent = role?.toLowerCase() == 'student';
+    
     return Scaffold(
       body: _pages[_currentIndex],
       bottomNavigationBar: Consumer<ThemeProvider>(
@@ -98,22 +101,43 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               type: BottomNavigationBarType.fixed,
               onTap: (index) {
+                // Disable "My Books" tab for students
+                if (index == 1 && isStudent) {
+                  // Show a message that this feature is not available for students
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'My Books is not available for student accounts',
+                        style: GoogleFonts.poppins(),
+                      ),
+                      backgroundColor: AppColors.warning,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                  return;
+                }
+                
                 setState(() {
                   _currentIndex = index;
                 });
                 _animationController.reset();
                 _animationController.forward();
               },
-              items: const [
-                BottomNavigationBarItem(
+              items: [
+                const BottomNavigationBarItem(
                   icon: Icon(Icons.home_rounded),
                   label: "Home",
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.library_books_rounded),
+                  icon: Icon(
+                    Icons.library_books_rounded,
+                    color: isStudent 
+                        ? AppColors.mediumGrey.withValues(alpha: 0.3)
+                        : null,
+                  ),
                   label: "My Books",
                 ),
-                BottomNavigationBarItem(
+                const BottomNavigationBarItem(
                   icon: Icon(Icons.settings_rounded),
                   label: "Settings",
                 ),
@@ -577,7 +601,7 @@ class _BookCardState extends State<_BookCard>
                   pageBuilder: (context, animation, secondaryAnimation) =>
                       BooksDetailsScreen(
                         bookTitle: widget.book.name,
-                        bookRating: widget.book.rating! ?? 0,
+                        bookRating: widget.book.rating ?? 0,
                         bookRate: widget.book.rate ?? 0,
                         bookDescription: widget.book.description,
                         bookPdfurl: widget.book.pdfUrl,
@@ -588,6 +612,7 @@ class _BookCardState extends State<_BookCard>
                         bookId: widget.book.id,
                         bookAuthor: widget.book.authorname,
                         isPurchased: widget.book.purchased,
+                        questionPaperUrl: widget.book.questionPaperUrl,
                       ),
                   transitionsBuilder:
                       (context, animation, secondaryAnimation, child) {

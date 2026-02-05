@@ -37,10 +37,19 @@ class ApiInterceptor extends Interceptor {
   ) async {
     // Handle errors globally
     if (err.response?.statusCode == 401) {
-      // Handle unauthorized - clear token and redirect to login
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('auth_token');
-      // You can add navigation logic here if needed
+      // Handle unauthorized - but DON'T automatically clear token
+      // Let the app handle this based on context
+      // Only clear if it's a token validation endpoint
+      final requestPath = err.requestOptions.path;
+      
+      // Only clear token if it's explicitly an auth validation failure
+      if (requestPath.contains('auth/validate') || 
+          requestPath.contains('auth/verify-token')) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('auth_token');
+      }
+      // For other 401 errors, just pass them through
+      // The app can decide what to do
     }
 
     super.onError(err, handler);

@@ -1,5 +1,7 @@
 import 'package:academixstore/Core/auth/api/auth_api_services.dart';
 import 'package:academixstore/Core/auth/view/signup_screen.dart';
+import 'package:academixstore/Core/home/api/home_api_services.dart';
+import 'package:academixstore/Core/home/view/home_screen.dart';
 import 'package:academixstore/Core/theme/app_colors.dart';
 import 'package:academixstore/Core/theme/theme_provider.dart';
 import 'package:academixstore/Core/utils/responsive_extensions.dart';
@@ -22,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen>
   final passwordController = TextEditingController();
   AuthApiServices authApiServices = AuthApiServices();
   bool isPasswordVisible = false;
-  bool isStudent = true; // Toggle between student and individual
+  bool isStudent = false; // Toggle between student and individual
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -94,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen>
                             boxShadow: [AppColors.goldGlowShadow()],
                           ),
                           child: Image.asset(
-                            'assets/icon/ic_launcher.webp',
+                            'assets/images/app_icon.jpeg',
                             height: 25.w,
                             width: 25.w,
                           ),
@@ -294,14 +296,79 @@ class _LoginScreenState extends State<LoginScreen>
                                   borderRadius: 16,
                                 ),
                                 child: ElevatedButton(
-                                  onPressed: () {
-                                    authApiServices.login(
-                                      email: isStudent
-                                          ? studentEmailController.text
-                                          : individualEmailController.text,
-                                      password: passwordController.text,
+                                  onPressed: () async {
+                                    // Validate inputs
+                                    final email = isStudent
+                                        ? studentEmailController.text.trim()
+                                        : individualEmailController.text.trim();
+                                    final password = passwordController.text.trim();
+
+                                    if (email.isEmpty) {
+                                      _showErrorDialog('Please enter your email');
+                                      return;
+                                    }
+
+                                    if (password.isEmpty) {
+                                      _showErrorDialog('Please enter your password');
+                                      return;
+                                    }
+
+                                    // Clear any cached books data before login
+                                    try {
+                                      final homeService = Provider.of<HomeApiServices>(
+                                        context,
+                                        listen: false,
+                                      );
+                                      homeService.resetState();
+                                    } catch (e) {
+                                      // Provider might not be available yet, ignore
+                                    }
+
+                                    // Show loading indicator
+                                    showDialog(
                                       context: context,
+                                      barrierDismissible: false,
+                                      builder: (context) => WillPopScope(
+                                        onWillPop: () async => false,
+                                        child: Center(
+                                          child: CircularProgressIndicator(
+                                            color: AppColors.primaryGold,
+                                          ),
+                                        ),
+                                      ),
                                     );
+
+                                    // Call login API (without auto-navigation)
+                                    final result = await authApiServices.loginWithoutNavigation(
+                                      email: email,
+                                      password: password,
+                                    );
+
+                                    // Dismiss loading indicator safely
+                                    if (mounted && Navigator.canPop(context)) {
+                                      Navigator.of(context).pop();
+                                    }
+
+                                    // Check result
+                                    if (result['success'] == true) {
+                                      // Navigate to home screen
+                                      if (mounted) {
+                                        Navigator.pushAndRemoveUntil(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => const HomeScreen(),
+                                          ),
+                                          (route) => false,
+                                        );
+                                      }
+                                    } else {
+                                      // Show error
+                                      final errorMessage = result['message'] ?? 
+                                          'Login failed. Please try again.';
+                                      if (mounted) {
+                                        _showErrorDialog(errorMessage);
+                                      }
+                                    }
                                   },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.transparent,
@@ -447,6 +514,66 @@ class _LoginScreenState extends State<LoginScreen>
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: AppColors.inputBorderFocused, width: 2),
         ),
+      ),
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDark = themeProvider.isDarkMode;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.cardBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: AppColors.borderGold, width: 2),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              color: AppColors.error,
+              size: 28.sp,
+            ),
+            SizedBox(width: 2.w),
+            Text(
+              'Login Failed',
+              style: GoogleFonts.poppins(
+                color: AppColors.getTextPrimary(isDark),
+                fontSize: 18.sp,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: GoogleFonts.poppins(
+            color: AppColors.getTextSecondary(isDark),
+            fontSize: 14.sp,
+          ),
+        ),
+        actions: [
+          Container(
+            decoration: BoxDecoration(
+              gradient: AppColors.goldGradient,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'OK',
+                style: GoogleFonts.poppins(
+                  color: AppColors.primaryBlack,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

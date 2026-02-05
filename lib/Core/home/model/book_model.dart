@@ -26,6 +26,7 @@ class BookModel {
   College? college;
   String? pdfAccessUrl;
   int? purchased;
+  String? questionPaperUrl;
 
   BookModel({
     this.id,
@@ -55,6 +56,7 @@ class BookModel {
     this.college,
     this.pdfAccessUrl,
     this.purchased,
+    this.questionPaperUrl,
   });
 
   BookModel.fromJson(Map<String, dynamic> json) {
@@ -89,6 +91,7 @@ class BookModel {
         : null;
     pdfAccessUrl = json['pdf_access_url'];
     purchased = json['purchased'];
+    questionPaperUrl = json['question_paper_access_url'];
   }
 
   Map<String, dynamic> toJson() {
@@ -122,6 +125,7 @@ class BookModel {
       data['college'] = this.college!.toJson();
     }
     data['pdf_access_url'] = this.pdfAccessUrl;
+    data['question_paper_access_url'] = this.questionPaperUrl;
     return data;
   }
 }

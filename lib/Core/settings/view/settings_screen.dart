@@ -1,6 +1,8 @@
 // COMMENTED FOR STATIC APP
 import 'dart:developer';
+import 'package:academixstore/Core/auth/api/auth_api_services.dart';
 import 'package:academixstore/Core/auth/view/signin_screen.dart';
+import 'package:academixstore/Core/home/api/home_api_services.dart';
 import 'package:academixstore/Core/theme/app_colors.dart';
 import 'package:academixstore/Core/theme/theme_provider.dart';
 import 'package:academixstore/Core/utils/responsive_extensions.dart';
@@ -197,23 +199,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     color: AppColors.warning,
                     onTap: () => _showLogoutDialog(),
                   ),
-                  SizedBox(height: 1.h),
-                  _buildDangerItem(
-                    icon: Icons.delete_forever_rounded,
-                    title: "Delete Account",
-                    subtitle: "Permanently delete your account",
-                    color: AppColors.error,
-                    onTap: () async {
-                      const url =
-                          'https://academixstore.com/account-deletion-request-academixstore/';
-                      if (await canLaunchUrl(Uri.parse(url))) {
-                        await launchUrl(
-                          Uri.parse(url),
-                          mode: LaunchMode.externalApplication,
-                        );
-                      }
-                    },
-                  ),
+                  // SizedBox(height: 1.h),
+                  // _buildDangerItem(
+                  //   icon: Icons.delete_forever_rounded,
+                  //   title: "Delete Account",
+                  //   subtitle: "Permanently delete your account",
+                  //   color: AppColors.error,
+                  //   onTap: () async {
+                  //     const url =
+                  //         'https://academixstore.com/account-deletion-request-academixstore/';
+                  //     if (await canLaunchUrl(Uri.parse(url))) {
+                  //       await launchUrl(
+                  //         Uri.parse(url),
+                  //         mode: LaunchMode.externalApplication,
+                  //       );
+                  //     }
+                  //   },
+                  // ),
                   SizedBox(height: 4.h),
 
                   // App Version
@@ -589,8 +591,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: TextButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(context);
+
+                // Clear books cache before logout
+                final homeService = Provider.of<HomeApiServices>(
+                  context,
+                  listen: false,
+                );
+                homeService.resetState();
+
+                // Actually logout and clear all auth data
+                final authService = AuthApiServices();
+                await authService.logout();
+
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -601,11 +615,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       backgroundColor: AppColors.success,
                     ),
                   );
-                  Navigator.pushReplacement(
+                  Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const LoginScreen(),
                     ),
+                    (route) => false, // Remove all previous routes
                   );
                 }
               },

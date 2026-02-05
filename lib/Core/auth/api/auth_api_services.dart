@@ -99,6 +99,15 @@ class AuthApiServices {
         data: {"email": email, "password": password},
       );
 
+      // Check if response.data is null
+      if (response.data == null) {
+        return {
+          'success': false,
+          'message': 'No response from server',
+          'data': null,
+        };
+      }
+
       final responseData = response.data as Map<String, dynamic>;
 
       // Check if login was successful
@@ -115,14 +124,43 @@ class AuthApiServices {
         if (data['user'] != null) {
           await _storeUserData(data['user'] as Map<String, dynamic>);
         }
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-          (route) => false,
-        );
+        
+        // Navigate only if context is still mounted
+        if (context.mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+            (route) => false,
+          );
+        }
       }
 
       return responseData;
+    } on DioException catch (e) {
+      log("Dio error during login: ${e.type}");
+      log("Response: ${e.response?.data}");
+
+      String message = 'Login failed. Please try again.';
+
+      // Extract error message from backend response
+      if (e.response?.data != null) {
+        if (e.response?.data is Map<String, dynamic>) {
+          final errorData = e.response?.data as Map<String, dynamic>;
+          message = errorData['message'] ?? message;
+        }
+      } else if (e.type == DioExceptionType.connectionTimeout) {
+        message = 'Connection timeout. Please check your internet connection.';
+      } else if (e.type == DioExceptionType.receiveTimeout) {
+        message = 'Server is taking too long to respond.';
+      } else if (e.type == DioExceptionType.connectionError) {
+        message = 'Unable to connect to server. Please check your internet connection.';
+      }
+
+      return {
+        'success': false,
+        'message': message,
+        'data': null,
+      };
     } catch (e, stackTrace) {
       log("Error while logging in: $e");
       log("StackTrace: $stackTrace");
@@ -130,18 +168,97 @@ class AuthApiServices {
       // Return error response
       return {
         'success': false,
-        'message': 'Login failed: ${e.toString()}',
+        'message': 'An unexpected error occurred. Please try again.',
+        'data': null,
+      };
+    }
+  }
+
+  /// Login user without automatic navigation
+  /// Returns a Map containing success status, message, and user data with token
+  Future<Map<String, dynamic>> loginWithoutNavigation({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final response = await _apiService.post(
+        'auth/login',
+        data: {"email": email, "password": password},
+      );
+
+      // Check if response.data is null
+      if (response.data == null) {
+        return {
+          'success': false,
+          'message': 'No response from server',
+          'data': null,
+        };
+      }
+
+      final responseData = response.data as Map<String, dynamic>;
+
+      // Check if login was successful
+      if (responseData['success'] == true && responseData['data'] != null) {
+        final data = responseData['data'] as Map<String, dynamic>;
+
+        // Store the token after successful login
+        if (data['token'] != null) {
+          await _storeAuthToken(data['token'] as String);
+          log("Token stored successfully after login");
+        }
+
+        // Store user data
+        if (data['user'] != null) {
+          await _storeUserData(data['user'] as Map<String, dynamic>);
+        }
+      }
+
+      return responseData;
+    } on DioException catch (e) {
+      log("Dio error during login: ${e.type}");
+      log("Response: ${e.response?.data}");
+
+      String message = 'Login failed. Please try again.';
+
+      // Extract error message from backend response
+      if (e.response?.data != null) {
+        if (e.response?.data is Map<String, dynamic>) {
+          final errorData = e.response?.data as Map<String, dynamic>;
+          message = errorData['message'] ?? message;
+        }
+      } else if (e.type == DioExceptionType.connectionTimeout) {
+        message = 'Connection timeout. Please check your internet connection.';
+      } else if (e.type == DioExceptionType.receiveTimeout) {
+        message = 'Server is taking too long to respond.';
+      } else if (e.type == DioExceptionType.connectionError) {
+        message = 'Unable to connect to server. Please check your internet connection.';
+      }
+
+      return {
+        'success': false,
+        'message': message,
+        'data': null,
+      };
+    } catch (e, stackTrace) {
+      log("Error while logging in: $e");
+      log("StackTrace: $stackTrace");
+
+      // Return error response
+      return {
+        'success': false,
+        'message': 'An unexpected error occurred. Please try again.',
         'data': null,
       };
     }
   }
 
   /// Store authentication token in SharedPreferences
+  /// This token persists across app restarts and should not be cleared automatically
   Future<void> _storeAuthToken(String token) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('auth_token', token);
-      log("Auth token stored successfully");
+      log("Auth token stored successfully - will persist until explicit logout");
     } catch (e) {
       log("Error storing auth token: $e");
     }
@@ -214,7 +331,7 @@ class AuthApiServices {
       await prefs.remove('user_college_id');
       await prefs.remove('user_student_id');
 
-      log("User logged out successfully");
+      log("User logged out successfully - all data cleared");
     } catch (e) {
       log("Error during logout: $e");
     }

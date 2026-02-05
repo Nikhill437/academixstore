@@ -27,8 +27,11 @@ class HomeApiServices extends ChangeNotifier {
 
       final response = await _apiService.get('books');
 
+      log("Books API Response: ${response.data}");
+
       // 🔐 Safety checks
       if (response.data == null || response.data is! Map<String, dynamic>) {
+        log("ERROR: Response data is null or not a Map");
         _booksStatus = OperationStatus.failure;
         _allBooks = [];
         notifyListeners();
@@ -39,6 +42,7 @@ class HomeApiServices extends ChangeNotifier {
           response.data as Map<String, dynamic>;
 
       if (responseData['success'] != true) {
+        log("ERROR: API returned success=false");
         _booksStatus = OperationStatus.failure;
         _allBooks = [];
         notifyListeners();
@@ -47,6 +51,7 @@ class HomeApiServices extends ChangeNotifier {
 
       final data = responseData['data'];
       if (data == null || data is! Map<String, dynamic>) {
+        log("ERROR: data field is null or not a Map");
         _booksStatus = OperationStatus.failure;
         _allBooks = [];
         notifyListeners();
@@ -55,16 +60,22 @@ class HomeApiServices extends ChangeNotifier {
 
       final books = data['books'];
       if (books == null || books is! List) {
+        log("ERROR: books field is null or not a List");
         _booksStatus = OperationStatus.failure;
         _allBooks = [];
         notifyListeners();
         return;
       }
 
+      log("Books count from API: ${books.length}");
+
       // Successfully parsed books
       _allBooks = books
           .map((book) => BookModel.fromJson(book as Map<String, dynamic>))
           .toList();
+      
+      log("Books parsed successfully: ${_allBooks.length} books");
+      
       _booksStatus = OperationStatus.success;
       notifyListeners();
     } catch (e, stackTrace) {
